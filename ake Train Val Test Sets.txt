@@ -1,0 +1,6 @@
+df_train=data[['gender', 'age','taahol','situation','shoghl','b_koliavi_kabedi_hormoni','economic','race', 'tahsilat_group_2','transmition_group','pregnant','animal','travel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi', 'b_tanafossi', 'b_asabi', 'b_saratan','zone_group_2',
+       'marakez_group_2','daroo', 'personel','SURVIVAL_TIME', 'final_event']]
+df_test = df_train.sample(frac=0.3)
+df_train = df_train.drop(df_test.index)
+df_val = df_train.sample(frac=0.3)
+df_train = df_train.drop(df_val.index)

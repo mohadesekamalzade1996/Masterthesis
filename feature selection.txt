@@ -1,0 +1,12 @@
+from sklearn import svm
+clf = svm.SVC(kernel='linear')
+#clf = svm.SVR(kernel='linear')  # svm for coxph
+labels = y_train[1]
+times = y_train[0]
+label_for_calc=((times.flatten()) & (labels.flatten() == 1)) * 1
+clf.fit(x_train[0], label_for_calc)
+feature_score = np.absolute(clf.coef_).flatten()
+columns_name = ['age','shoghl','gender','situation','tahsilat_group_2','pregnant','animal','travel','zone_group_2','marakez_group_2','personel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi','b_koliavi_kabedi_hormoni','b_tanafossi', 'b_asabi', 'b_saratan', 'economic_0', 'economic_1', 'economic_2','taahol_0','taahol_1','taahol_2', 'race_0', 'race_1', 'race_2', 'race_3','transmition_group_0','transmition_group_1','transmition_group_2','transmition_group_3','daroo_0','daroo_1','daroo_2']
+featurs=pd.DataFrame(feature_score,index=columns_name,columns=["score"])
+featurs_sorted = featurs.sort_values("score",ascending=False)
+featurs_sorted

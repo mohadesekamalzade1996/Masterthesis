@@ -1,0 +1,6 @@
+from pycox.utils import kaplan_meier
+plt.vlines(labtrans.cuts, 0, 1, colors='gray', linestyles="--", label='Discretization Grid')
+kaplan_meier(*get_target(df_train)).plot(label='Kaplan-Meier')
+plt.ylabel('S(t)')
+plt.legend()
+_ = plt.xlabel('Time')

@@ -1,0 +1,5 @@
+surv = model.predict_surv_df(x_test)
+
+surv.iloc[:, :5].plot(drawstyle='steps-post')
+plt.ylabel('S(t | x)')
+_ = plt.xlabel('Time')

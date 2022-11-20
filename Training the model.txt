@@ -1,0 +1,10 @@
+model =LogisticHazard(net, tt.optim.Adam, duration_index=labtrans.cuts)
+batch_size=128
+model.optimizer.set_lr(0.01)
+epochs =2500
+callbacks = [tt.cb.EarlyStopping()]
+verbose = True # set to True if you want printout
+log = model.fit(x_train, y_train, batch_size, epochs, callbacks, verbose,val_data=val)
+log.to_pandas().iloc[1:].plot()
+plt.ylabel('loss')
+_ = plt.xlabel('epoch')

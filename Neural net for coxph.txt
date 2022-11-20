@@ -1,0 +1,9 @@
+in_features = x_train[0].shape[1]
+out_features =1
+num_nodes = [320,320]
+batch_norm = True
+dropout = 0.3
+output_bias = False
+
+net = tt.practical.MLPVanilla(in_features, num_nodes, out_features, batch_norm, dropout)
+model =CoxPH(net, tt.optim.Adam)

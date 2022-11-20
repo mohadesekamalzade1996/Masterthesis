@@ -1,0 +1,10 @@
+num_durations=50
+scheme = 'quantiles'
+labtrans = LogisticHazard.label_transform(num_durations, scheme)
+#labtrans = PMF.label_transform(num_durations, scheme)
+#labtrans = LogisticHazard.label_transform(num_durations)  #for equistic interval 
+get_target = lambda df: (df['SURVIVAL_TIME'].values, df['final_event'].values)
+y_train = labtrans.fit_transform(*get_target(df_train))
+y_val = labtrans.transform(*get_target(df_val))
+durations_test, events_test = get_target(df_test)
+labtrans.cuts

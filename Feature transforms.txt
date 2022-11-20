@@ -1,0 +1,21 @@
+cols_standardize = ['age']
+cols_leave = ['shoghl','gender','situation','tahsilat_group_2','pregnant','animal','travel','zone_group_2','marakez_group_2','personel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi','b_koliavi_kabedi_hormoni','b_tanafossi', 'b_asabi', 'b_saratan']
+cols_categorical =  ['economic','taahol', 'race','transmition_group','daroo']
+
+standardize = [([col], StandardScaler()) for col in cols_standardize]
+leave = [(col, None) for col in cols_leave]
+categorical = [(col, None) for col in cols_categorical]
+
+
+x_mapper_float = DataFrameMapper(standardize+leave)
+
+OHE = OneHotEncoder()
+OHE_fit_transform = lambda df:OHE.fit_transform(df[cols_categorical]).toarray()
+OHE_transform = lambda df:OHE.transform(df[cols_categorical]).toarray()
+
+x_fit_transform = lambda df: tt.tuplefy(np.insert(x_mapper_float.fit_transform(df).astype(np.float32),[1],OHE_fit_transform(df).astype(np.float32), axis=1))
+x_transform = lambda df: tt.tuplefy(np.insert(x_mapper_float.transform(df).astype(np.float32),[1],OHE_transform(df).astype(np.float32), axis=1))
+
+x_train = x_fit_transform(df_train)
+x_val = x_transform(df_val)
+x_test = x_transform(df_test)

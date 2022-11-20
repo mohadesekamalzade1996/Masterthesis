@@ -1,0 +1,192 @@
+###################Connect Google Colab To Google Drive########################
+
+from google.colab import drive
+drive.mount('/content/drive/')
+
+########################Import Packages########################
+
+pip install torchtuples
+pip install pycox
+pip install pyreadstat
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import torch # For building the networks 
+import torchtuples as tt # Some useful functions
+from sklearn.model_selection import train_test_split
+# For preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn_pandas import DataFrameMapper 
+from pycox.preprocessing.feature_transforms import OrderedCategoricalLong
+from sklearn.preprocessing import OneHotEncoder
+
+from pycox.evaluation import EvalSurv
+from pycox.models import LogisticHazard
+#from pycox.models import PMF
+from pycox.models import CoxPH
+# We also set some seeds to make this reproducable.
+# Note that on gpu, there is still some randomness.
+np.random.seed(123456)
+_ = torch.manual_seed(123456)
+
+########################Load Data########################
+data=pd.read_spss('/content/drive/My Drive/Colab Notebooks/COVID...19.sav',convert_categoricals=False)
+
+########################Make Train,Val,Test Sets ######################## 
+
+df_train=data[['gender', 'age','taahol','situation','shoghl','b_koliavi_kabedi_hormoni','economic','race', 'tahsilat_group_2','transmition_group','pregnant','animal','travel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi', 'b_tanafossi', 'b_asabi', 'b_saratan','zone_group_2',
+       'marakez_group_2','daroo', 'personel','SURVIVAL_TIME', 'final_event']]
+df_test = df_train.sample(frac=0.3)
+df_train = df_train.drop(df_test.index)
+df_val = df_train.sample(frac=0.3)
+df_train = df_train.drop(df_val.index)
+
+########################Feature transforms########################
+cols_standardize = ['age']
+cols_leave = ['shoghl','gender','situation','tahsilat_group_2','pregnant','animal','travel','zone_group_2','marakez_group_2','personel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi','b_koliavi_kabedi_hormoni','b_tanafossi', 'b_asabi', 'b_saratan']
+cols_categorical =  ['economic','taahol', 'race','transmition_group','daroo']
+
+standardize = [([col], StandardScaler()) for col in cols_standardize]
+leave = [(col, None) for col in cols_leave]
+categorical = [(col, None) for col in cols_categorical]
+
+
+x_mapper_float = DataFrameMapper(standardize+leave)
+
+OHE = OneHotEncoder()
+OHE_fit_transform = lambda df:OHE.fit_transform(df[cols_categorical]).toarray()
+OHE_transform = lambda df:OHE.transform(df[cols_categorical]).toarray()
+
+x_fit_transform = lambda df: tt.tuplefy(np.insert(x_mapper_float.fit_transform(df).astype(np.float32),[1],OHE_fit_transform(df).astype(np.float32), axis=1))
+x_transform = lambda df: tt.tuplefy(np.insert(x_mapper_float.transform(df).astype(np.float32),[1],OHE_transform(df).astype(np.float32), axis=1))
+
+x_train = x_fit_transform(df_train)
+x_val = x_transform(df_val)
+x_test = x_transform(df_test)
+
+##################Label transforms####################
+
+num_durations=50
+scheme = 'quantiles'
+labtrans = LogisticHazard.label_transform(num_durations, scheme)
+#labtrans = PMF.label_transform(num_durations, scheme)
+#labtrans = LogisticHazard.label_transform(num_durations)  #for equistic interval 
+get_target = lambda df: (df['SURVIVAL_TIME'].values, df['final_event'].values)
+y_train = labtrans.fit_transform(*get_target(df_train))
+y_val = labtrans.transform(*get_target(df_val))
+durations_test, events_test = get_target(df_test)
+labtrans.cuts
+####################kaplan_meier plot####################
+
+from pycox.utils import kaplan_meier
+plt.vlines(labtrans.cuts, 0, 1, colors='gray', linestyles="--", label='Discretization Grid')
+kaplan_meier(*get_target(df_train)).plot(label='Kaplan-Meier')
+plt.ylabel('S(t)')
+plt.legend()
+_ = plt.xlabel('Time')
+########################Neural net########################
+
+from torch.nn.modules import dropout
+
+in_features = x_train[0].shape[1]
+out_features = labtrans.out_features
+num_nodes =[27,27,27]
+batch_norm = True
+dropout=0.3
+net = tt.practical.MLPVanilla(in_features, num_nodes, out_features, batch_norm, dropout)
+
+########################Neural net for coxph########################
+in_features = x_train[0].shape[1]
+out_features =1
+num_nodes = [320,320]
+batch_norm = True
+dropout = 0.3
+output_bias = False
+
+net = tt.practical.MLPVanilla(in_features, num_nodes, out_features, batch_norm, dropout)
+model =CoxPH(net, tt.optim.Adam)
+
+########################Training the model########################
+
+model =LogisticHazard(net, tt.optim.Adam, duration_index=labtrans.cuts)
+batch_size=128
+model.optimizer.set_lr(0.01)
+epochs =2500
+callbacks = [tt.cb.EarlyStopping()]
+verbose = True # set to True if you want printout
+log = model.fit(x_train, y_train, batch_size, epochs, callbacks, verbose,val_data=val)
+log.to_pandas().iloc[1:].plot()
+plt.ylabel('loss')
+_ = plt.xlabel('epoch')
+
+########################Prediction########################
+
+surv = model.predict_surv_df(x_test)
+
+surv.iloc[:, :5].plot(drawstyle='steps-post')
+plt.ylabel('S(t | x)')
+_ = plt.xlabel('Time')
+
+########################Evaluation########################
+
+ev = EvalSurv(surv, durations_test, events_test, censor_surv='km')
+Concordance
+ev.concordance_td('antolini')
+Brier Score
+time_grid = np.linspace(durations_test.min(), durations_test.max(), 100)
+ev.brier_score(time_grid).plot()
+plt.ylabel('Brier score')
+_ = plt.xlabel('Time')
+
+ev.integrated_brier_score(time_grid) 
+
+####################garson's algorithm####################
+for child in net.children():
+    for name, param in child.named_parameters():
+        print(name, param)
+
+from numpy.ma.core import std
+we=[]
+for child in net.children():
+    for name, param in child.named_parameters():
+        we.append(param)
+
+def garson(A, B):
+    """
+   # Computes Garson's algorithm
+    #A = matrix of weights of input-hidden layer (rows=input & cols=hidden)
+    #B = vector of weights of hidden-output layer
+    """
+    B = np.diag(B)
+
+    # connection weight through the different hidden node
+    cw = np.dot(A, B)
+
+    # weight through node (axis=0 is column; sum per input feature)
+    cw_h = abs(cw).sum(axis=0)
+
+    # relative contribution of input neuron to outgoing signal of each hidden neuron
+    # sum to find relative contribution of input neuron
+    rc = np.divide(abs(cw), abs(cw_h))
+    rc = rc.sum(axis=1)
+
+     #normalize to 100% for relative importance
+    ri = rc / rc.sum()
+    return(ri)
+
+garson(np.array(we[0].detach().numpy()),np.array(pd.DataFrame(we[-2].detach().numpy()).apply(sum,axis=0)))
+
+
+#################### feature selection ####################
+from sklearn import svm
+clf = svm.SVC(kernel='linear')
+#clf = svm.SVR(kernel='linear')  # svm for coxph
+labels = y_train[1]
+times = y_train[0]
+label_for_calc=((times.flatten()) & (labels.flatten() == 1)) * 1
+clf.fit(x_train[0], label_for_calc)
+feature_score = np.absolute(clf.coef_).flatten()
+columns_name = ['age','shoghl','gender','situation','tahsilat_group_2','pregnant','animal','travel','zone_group_2','marakez_group_2','personel','disease','b_blood_p','b_diabetes', 'b_ghalbi_orooghi','b_koliavi_kabedi_hormoni','b_tanafossi', 'b_asabi', 'b_saratan', 'economic_0', 'economic_1', 'economic_2','taahol_0','taahol_1','taahol_2', 'race_0', 'race_1', 'race_2', 'race_3','transmition_group_0','transmition_group_1','transmition_group_2','transmition_group_3','daroo_0','daroo_1','daroo_2']
+featurs=pd.DataFrame(feature_score,index=columns_name,columns=["score"])
+featurs_sorted = featurs.sort_values("score",ascending=False)
+featurs_sorted

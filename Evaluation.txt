@@ -1,0 +1,10 @@
+ev = EvalSurv(surv, durations_test, events_test, censor_surv='km')
+Concordance
+ev.concordance_td('antolini')
+Brier Score
+time_grid = np.linspace(durations_test.min(), durations_test.max(), 100)
+ev.brier_score(time_grid).plot()
+plt.ylabel('Brier score')
+_ = plt.xlabel('Time')
+
+ev.integrated_brier_score(time_grid) 

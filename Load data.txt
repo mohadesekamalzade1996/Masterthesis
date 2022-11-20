@@ -1,0 +1,1 @@
+data=pd.read_spss('/content/drive/My Drive/Colab Notebooks/COVID...19.sav',convert_categoricals=False)

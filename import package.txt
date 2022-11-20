@@ -1,0 +1,23 @@
+pip install torchtuples
+pip install pycox
+pip install pyreadstat
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import torch # For building the networks 
+import torchtuples as tt # Some useful functions
+from sklearn.model_selection import train_test_split
+# For preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn_pandas import DataFrameMapper 
+from pycox.preprocessing.feature_transforms import OrderedCategoricalLong
+from sklearn.preprocessing import OneHotEncoder
+
+from pycox.evaluation import EvalSurv
+from pycox.models import LogisticHazard
+#from pycox.models import PMF
+from pycox.models import CoxPH
+# We also set some seeds to make this reproducable.
+# Note that on gpu, there is still some randomness.
+np.random.seed(123456)
+_ = torch.manual_seed(123456)
